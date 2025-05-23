@@ -225,9 +225,28 @@ app.post('/auth/login', async (req, res) => {
         // Remove password from response
         user.password = undefined;
 
-        console.log('Login successful:', {
+        console.log('Login successful - Sending response:', {
             userId: user._id,
-            email: user.email
+            email: user.email,
+            tokenLength: token.length,
+            responseData: {
+                message: 'Login successful',
+                token: token.substring(0, 10) + '...',
+                user: {
+                    id: user._id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role
+                }
+            }
+        });
+
+        // Set token in cookie as well
+        res.cookie('jwt', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'none',
+            maxAge: 24 * 60 * 60 * 1000 // 24 hours
         });
 
         res.json({
