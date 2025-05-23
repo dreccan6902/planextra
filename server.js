@@ -32,7 +32,7 @@ app.use(express.json());
 
 // CORS Configuration
 app.use((req, res, next) => {
-    const allowedOrigins = ['https://melodic-lebkuchen-a42cba.netlify.app'];
+    const allowedOrigins = ['https://stellar-medovik-205615.netlify.app'];
     const origin = req.headers.origin;
     
     if (allowedOrigins.includes(origin)) {
@@ -62,7 +62,7 @@ app.use((req, res, next) => {
 // Socket.IO setup with CORS
 const io = socketIo(server, {
     cors: {
-        origin: 'https://heroic-figolla-87d8e9.netlify.app',
+        origin: 'https://stellar-medovik-205615.netlify.app',
         methods: ['GET', 'POST'],
         credentials: true
     },
