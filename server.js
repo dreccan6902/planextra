@@ -32,7 +32,7 @@ app.use(express.json());
 
 // CORS Configuration
 app.use((req, res, next) => {
-    const allowedOrigins = ['https://candid-sprite-d3b44d.netlify.app'];
+    const allowedOrigins = ['https://heroic-figolla-87d8e9.netlify.app'];
     const origin = req.headers.origin;
     
     if (allowedOrigins.includes(origin)) {
@@ -54,8 +54,8 @@ app.use((req, res, next) => {
     // Set Content-Security-Policy header with WebSocket support
     res.setHeader(
         'Content-Security-Policy',
-        "default-src 'self' https://planextra.onrender.com https://candid-sprite-d3b44d.netlify.app; " +
-        "connect-src 'self' https://planextra.onrender.com wss://planextra.onrender.com https://candid-sprite-d3b44d.netlify.app ws://planextra.onrender.com; " +
+        "default-src 'self' https://planextra.onrender.com https://heroic-figolla-87d8e9.netlify.app; " +
+        "connect-src 'self' https://planextra.onrender.com wss://planextra.onrender.com https://heroic-figolla-87d8e9.netlify.app ws://planextra.onrender.com; " +
         "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
         "style-src 'self' 'unsafe-inline';"
     );
@@ -72,7 +72,7 @@ app.use((req, res, next) => {
 // Socket.IO setup with CORS
 const io = socketIo(server, {
     cors: {
-        origin: 'https://candid-sprite-d3b44d.netlify.app',
+        origin: 'https://heroic-figolla-87d8e9.netlify.app',
         methods: ['GET', 'POST'],
         credentials: true
     },
@@ -103,7 +103,7 @@ const initializeRoutes = () => {
             status: 'ok',
             message: 'PlanExtra API Server',
             version: '1.0.0',
-            frontend: 'https://candid-sprite-d3b44d.netlify.app'
+            frontend: 'https://heroic-figolla-87d8e9.netlify.app'
         });
     });
 };
