@@ -32,7 +32,7 @@ app.use(express.json());
 
 // CORS Configuration
 app.use((req, res, next) => {
-    const allowedOrigins = ['https://inspiring-genie-264f9d.netlify.app'];
+    const allowedOrigins = ['https://candid-sprite-d3b44d.netlify.app'];
     const origin = req.headers.origin;
     
     if (allowedOrigins.includes(origin)) {
@@ -54,8 +54,8 @@ app.use((req, res, next) => {
     // Set Content-Security-Policy header with WebSocket support
     res.setHeader(
         'Content-Security-Policy',
-        "default-src 'self' https://planextra.onrender.com https://inspiring-genie-264f9d.netlify.app; " +
-        "connect-src 'self' https://planextra.onrender.com wss://planextra.onrender.com https://inspiring-genie-264f9d.netlify.app ws://planextra.onrender.com; " +
+        "default-src 'self' https://planextra.onrender.com https://candid-sprite-d3b44d.netlify.app; " +
+        "connect-src 'self' https://planextra.onrender.com wss://planextra.onrender.com https://candid-sprite-d3b44d.netlify.app ws://planextra.onrender.com; " +
         "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
         "style-src 'self' 'unsafe-inline';"
     );
@@ -72,7 +72,7 @@ app.use((req, res, next) => {
 // Socket.IO setup with CORS
 const io = socketIo(server, {
     cors: {
-        origin: 'https://inspiring-genie-264f9d.netlify.app',
+        origin: 'https://candid-sprite-d3b44d.netlify.app',
         methods: ['GET', 'POST'],
         credentials: true
     },
@@ -103,7 +103,7 @@ const initializeRoutes = () => {
             status: 'ok',
             message: 'PlanExtra API Server',
             version: '1.0.0',
-            frontend: 'https://inspiring-genie-264f9d.netlify.app'
+            frontend: 'https://candid-sprite-d3b44d.netlify.app'
         });
     });
 };
@@ -210,14 +210,16 @@ app.post('/auth/login', async (req, res) => {
             return res.status(401).json({ message: 'Invalid email or password' });
         }
 
-        // Create token
+        // Create token with all necessary user information
+        const tokenPayload = {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role
+        };
+
         const token = jwt.sign(
-            { 
-                id: user._id, 
-                name: user.name, 
-                email: user.email,
-                role: user.role 
-            },
+            tokenPayload,
             JWT_SECRET,
             { expiresIn: '24h' }
         );
@@ -225,33 +227,31 @@ app.post('/auth/login', async (req, res) => {
         // Remove password from response
         user.password = undefined;
 
-        console.log('Login successful - Sending response:', {
-            userId: user._id,
-            email: user.email,
-            tokenLength: token.length,
-            responseData: {
-                message: 'Login successful',
-                token: token.substring(0, 10) + '...',
-                user: {
-                    id: user._id,
-                    name: user.name,
-                    email: user.email,
-                    role: user.role
-                }
-            }
-        });
-
-        // Set token in cookie as well
+        // Set token in cookie
         res.cookie('jwt', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: true, // Force secure for all environments
             sameSite: 'none',
             maxAge: 24 * 60 * 60 * 1000 // 24 hours
         });
 
+        // Set authorization header
+        res.setHeader('Authorization', `Bearer ${token}`);
+
+        console.log('Login successful - Sending response:', {
+            userId: user._id,
+            email: user.email,
+            tokenLength: token.length,
+            tokenPreview: token.substring(0, 10) + '...',
+            cookieSet: true,
+            headerSet: true
+        });
+
+        // Send response with token and user data
         res.json({
+            success: true,
             message: 'Login successful',
-            token,
+            token: token,
             user: {
                 id: user._id,
                 name: user.name,
