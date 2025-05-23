@@ -32,7 +32,7 @@ app.use(express.json());
 
 // CORS Configuration
 app.use((req, res, next) => {
-    const allowedOrigins = ['https://charming-crumble-292dfc.netlify.app'];
+    const allowedOrigins = ['https://charming-crumble-292dfc.netlify.app', 'https://quiet-klepon-bbc577.netlify.app'];
     const origin = req.headers.origin;
     
     if (allowedOrigins.includes(origin)) {
@@ -54,8 +54,8 @@ app.use((req, res, next) => {
     // Set Content-Security-Policy header with WebSocket support
     res.setHeader(
         'Content-Security-Policy',
-        "default-src 'self' https://planextra.onrender.com https://charming-crumble-292dfc.netlify.app; " +
-        "connect-src 'self' https://planextra.onrender.com wss://planextra.onrender.com https://charming-crumble-292dfc.netlify.app ws://planextra.onrender.com; " +
+        "default-src 'self' https://planextra.onrender.com https://quiet-klepon-bbc577.netlify.app; " +
+        "connect-src 'self' https://planextra.onrender.com wss://planextra.onrender.com https://quiet-klepon-bbc577.netlify.app ws://planextra.onrender.com; " +
         "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
         "style-src 'self' 'unsafe-inline';"
     );
@@ -72,7 +72,7 @@ app.use((req, res, next) => {
 // Socket.IO setup with CORS
 const io = socketIo(server, {
     cors: {
-        origin: 'https://charming-crumble-292dfc.netlify.app',
+        origin: 'https://quiet-klepon-bbc577.netlify.app',
         methods: ['GET', 'POST'],
         credentials: true
     },
