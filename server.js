@@ -32,8 +32,12 @@ app.use(express.json());
 
 // CORS Configuration
 app.use((req, res, next) => {
-    // Allow the specific Netlify domain
-    res.setHeader('Access-Control-Allow-Origin', 'https://voluble-shortbread-9f929b.netlify.app');
+    const allowedOrigins = ['https://charming-crostata-6cc0f0.netlify.app'];
+    const origin = req.headers.origin;
+    
+    if (allowedOrigins.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+    }
     
     // Allow credentials
     res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -46,18 +50,12 @@ app.use((req, res, next) => {
     
     // Set max age for preflight requests
     res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
-
-    // Log CORS headers being set
-    console.log('CORS Headers set:', {
-        origin: res.getHeader('Access-Control-Allow-Origin'),
-        methods: res.getHeader('Access-Control-Allow-Methods'),
-        headers: res.getHeader('Access-Control-Allow-Headers'),
-        credentials: res.getHeader('Access-Control-Allow-Credentials')
-    });
+    
+    // Set Content-Security-Policy header
+    res.setHeader('Content-Security-Policy', "default-src 'self' https://planextra.onrender.com https://charming-crostata-6cc0f0.netlify.app; connect-src 'self' https://planextra.onrender.com wss://planextra.onrender.com https://charming-crostata-6cc0f0.netlify.app; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';");
 
     // Handle preflight requests
     if (req.method === 'OPTIONS') {
-        console.log('Handling OPTIONS preflight request');
         res.status(200).end();
         return;
     }
@@ -65,15 +63,14 @@ app.use((req, res, next) => {
     next();
 });
 
-// Specific CORS handling for Socket.IO
+// Socket.IO setup with CORS
 const io = socketIo(server, {
     cors: {
-        origin: 'https://voluble-shortbread-9f929b.netlify.app',
+        origin: 'https://charming-crostata-6cc0f0.netlify.app',
         methods: ['GET', 'POST'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
-        credentials: true
-    },
-    transports: ['websocket', 'polling']
+        credentials: true,
+        transports: ['websocket', 'polling']
+    }
 });
 
 // Initialize routes
@@ -85,7 +82,7 @@ const initializeRoutes = () => {
         res.json({ message: 'CORS test successful' });
     });
 
-    // API routes
+    // API routes with /api prefix
     app.use('/api/tasks', taskRoutes);
     app.use('/api/groups', groupRoutes);
     app.use('/api/shared-tasks', sharedTaskRoutes);
@@ -95,7 +92,8 @@ const initializeRoutes = () => {
         res.json({
             status: 'ok',
             message: 'PlanExtra API Server',
-            version: '1.0.0'
+            version: '1.0.0',
+            frontend: 'https://charming-crostata-6cc0f0.netlify.app'
         });
     });
 };
