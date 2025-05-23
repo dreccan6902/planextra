@@ -32,7 +32,7 @@ app.use(express.json());
 
 // CORS Configuration
 app.use((req, res, next) => {
-    const allowedOrigins = ['https://majestic-boba-4092cc.netlify.app'];
+    const allowedOrigins = ['https://inspiring-genie-264f9d.netlify.app'];
     const origin = req.headers.origin;
     
     if (allowedOrigins.includes(origin)) {
@@ -54,8 +54,8 @@ app.use((req, res, next) => {
     // Set Content-Security-Policy header with WebSocket support
     res.setHeader(
         'Content-Security-Policy',
-        "default-src 'self' https://planextra.onrender.com https://majestic-boba-4092cc.netlify.app; " +
-        "connect-src 'self' https://planextra.onrender.com wss://planextra.onrender.com https://majestic-boba-4092cc.netlify.app ws://planextra.onrender.com; " +
+        "default-src 'self' https://planextra.onrender.com https://inspiring-genie-264f9d.netlify.app; " +
+        "connect-src 'self' https://planextra.onrender.com wss://planextra.onrender.com https://inspiring-genie-264f9d.netlify.app ws://planextra.onrender.com; " +
         "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
         "style-src 'self' 'unsafe-inline';"
     );
@@ -72,7 +72,7 @@ app.use((req, res, next) => {
 // Socket.IO setup with CORS
 const io = socketIo(server, {
     cors: {
-        origin: 'https://majestic-boba-4092cc.netlify.app',
+        origin: 'https://inspiring-genie-264f9d.netlify.app',
         methods: ['GET', 'POST'],
         credentials: true
     },
@@ -103,7 +103,7 @@ const initializeRoutes = () => {
             status: 'ok',
             message: 'PlanExtra API Server',
             version: '1.0.0',
-            frontend: 'https://majestic-boba-4092cc.netlify.app'
+            frontend: 'https://inspiring-genie-264f9d.netlify.app'
         });
     });
 };
