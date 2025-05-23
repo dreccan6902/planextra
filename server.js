@@ -51,8 +51,14 @@ app.use((req, res, next) => {
     // Set max age for preflight requests
     res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
     
-    // Set Content-Security-Policy header
-    res.setHeader('Content-Security-Policy', "default-src 'self' https://planextra.onrender.com https://charming-crumble-292dfc.netlify.app; connect-src 'self' https://planextra.onrender.com wss://planextra.onrender.com https://charming-crumble-292dfc.netlify.app; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';");
+    // Set Content-Security-Policy header with WebSocket support
+    res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'self' https://planextra.onrender.com https://charming-crumble-292dfc.netlify.app; " +
+        "connect-src 'self' https://planextra.onrender.com wss://planextra.onrender.com https://charming-crumble-292dfc.netlify.app ws://planextra.onrender.com; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+        "style-src 'self' 'unsafe-inline';"
+    );
 
     // Handle preflight requests
     if (req.method === 'OPTIONS') {
@@ -68,9 +74,13 @@ const io = socketIo(server, {
     cors: {
         origin: 'https://charming-crumble-292dfc.netlify.app',
         methods: ['GET', 'POST'],
-        credentials: true,
-        transports: ['websocket', 'polling']
-    }
+        credentials: true
+    },
+    transports: ['websocket', 'polling'],
+    allowEIO3: true,
+    path: '/socket.io/',
+    pingTimeout: 60000,
+    pingInterval: 25000
 });
 
 // Initialize routes
@@ -163,29 +173,62 @@ const authenticateToken = (req, res, next) => {
 app.post('/auth/login', async (req, res) => {
     try {
         const { email, password } = req.body;
-        console.log('Login attempt for:', email);
+        console.log('Login attempt details:', { 
+            email,
+            hasPassword: !!password,
+            passwordLength: password?.length
+        });
 
         if (!email || !password) {
+            console.log('Missing credentials:', { email: !!email, password: !!password });
             return res.status(400).json({ message: 'Email and password are required' });
         }
 
+        // Find user and explicitly select password field
         const user = await User.findOne({ email }).select('+password');
+        console.log('User lookup result:', {
+            found: !!user,
+            userId: user?._id,
+            hasPasswordHash: !!user?.password
+        });
+
         if (!user) {
+            console.log('User not found:', email);
             return res.status(401).json({ message: 'Invalid email or password' });
         }
 
+        // Check password
         const validPassword = await bcrypt.compare(password, user.password);
+        console.log('Password validation:', {
+            isValid: validPassword,
+            providedLength: password.length,
+            hashLength: user.password.length
+        });
+
         if (!validPassword) {
+            console.log('Invalid password for user:', email);
             return res.status(401).json({ message: 'Invalid email or password' });
         }
 
+        // Create token
         const token = jwt.sign(
-            { id: user._id, name: user.name, email: user.email, role: user.role },
+            { 
+                id: user._id, 
+                name: user.name, 
+                email: user.email,
+                role: user.role 
+            },
             JWT_SECRET,
             { expiresIn: '24h' }
         );
 
+        // Remove password from response
         user.password = undefined;
+
+        console.log('Login successful:', {
+            userId: user._id,
+            email: user.email
+        });
 
         res.json({
             message: 'Login successful',
@@ -206,21 +249,36 @@ app.post('/auth/login', async (req, res) => {
 app.post('/auth/register', async (req, res) => {
     try {
         const { name, email, password } = req.body;
+        console.log('Registration attempt:', { 
+            name, 
+            email, 
+            hasPassword: !!password,
+            passwordLength: password?.length 
+        });
         
         if (!name || !email || !password) {
+            console.log('Missing registration fields:', {
+                name: !!name,
+                email: !!email,
+                password: !!password
+            });
             return res.status(400).json({ message: 'All fields are required' });
         }
 
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
+            console.log('Invalid email format:', email);
             return res.status(400).json({ message: 'Invalid email format' });
         }
 
+        // Check if user already exists
         const existingUser = await User.findOne({ email });
         if (existingUser) {
+            console.log('User already exists:', email);
             return res.status(400).json({ message: 'User already exists' });
         }
 
+        // Create new user
         const user = new User({
             name,
             email,
@@ -230,7 +288,15 @@ app.post('/auth/register', async (req, res) => {
             updatedAt: new Date()
         });
 
+        // Log the user object before saving (without password)
+        console.log('Creating new user:', {
+            name: user.name,
+            email: user.email,
+            role: user.role
+        });
+
         await user.save();
+        console.log('User saved successfully:', user._id);
 
         const token = jwt.sign(
             { id: user._id, name: user.name, email: user.email },
@@ -259,8 +325,16 @@ const activeUsers = new Map(); // userId -> { user data }
 const userSockets = new Map(); // userId -> Set of socket IDs
 
 io.on('connection', (socket) => {
-    console.log('User connected:', socket.user.name);
-    
+    console.log('Client connected:', socket.id);
+
+    socket.on('disconnect', () => {
+        console.log('Client disconnected:', socket.id);
+    });
+
+    socket.on('error', (error) => {
+        console.error('Socket error:', error);
+    });
+
     // Add user to active users
     activeUsers.set(socket.user.userId, {
         id: socket.user.userId,
@@ -327,19 +401,6 @@ io.on('connection', (socket) => {
         } catch (error) {
             console.error('Error deleting task:', error);
         }
-    });
-
-    // Handle disconnection
-    socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.user.name);
-        activeUsers.delete(socket.user.userId);
-        
-        // Broadcast updated active users list to all groups
-        socket.rooms.forEach(room => {
-            if (room !== socket.id) { // Ignore the default room
-                io.to(room).emit('activeUsers', Array.from(activeUsers.values()));
-            }
-        });
     });
 });
 
