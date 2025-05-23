@@ -30,9 +30,9 @@ const userSchema = new mongoose.Schema({
 
 async function mergeUsers() {
     try {
-        // Connect to both databases
-        const planextraDB = await mongoose.createConnection('mongodb+srv://drecxylover:tdTWv9IX4twWjYUF@cluster0.dcmqkxq.mongodb.net/planextra');
-        const testDB = await mongoose.createConnection('mongodb+srv://drecxylover:tdTWv9IX4twWjYUF@cluster0.dcmqkxq.mongodb.net/test');
+        // Connect to both databases using environment variables
+        const planextraDB = await mongoose.createConnection(process.env.MONGODB_URI);
+        const testDB = await mongoose.createConnection(process.env.TEST_MONGODB_URI);
 
         // Create models for both databases
         const PlanextraUser = planextraDB.model('User', userSchema);
