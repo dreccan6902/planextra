@@ -32,7 +32,7 @@ app.use(express.json());
 
 // CORS Configuration
 app.use((req, res, next) => {
-    const allowedOrigins = ['https://charming-crostata-6cc0f0.netlify.app'];
+    const allowedOrigins = ['https://charming-crumble-292dfc.netlify.app'];
     const origin = req.headers.origin;
     
     if (allowedOrigins.includes(origin)) {
@@ -52,7 +52,7 @@ app.use((req, res, next) => {
     res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
     
     // Set Content-Security-Policy header
-    res.setHeader('Content-Security-Policy', "default-src 'self' https://planextra.onrender.com https://charming-crostata-6cc0f0.netlify.app; connect-src 'self' https://planextra.onrender.com wss://planextra.onrender.com https://charming-crostata-6cc0f0.netlify.app; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';");
+    res.setHeader('Content-Security-Policy', "default-src 'self' https://planextra.onrender.com https://charming-crumble-292dfc.netlify.app; connect-src 'self' https://planextra.onrender.com wss://planextra.onrender.com https://charming-crumble-292dfc.netlify.app; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';");
 
     // Handle preflight requests
     if (req.method === 'OPTIONS') {
@@ -66,7 +66,7 @@ app.use((req, res, next) => {
 // Socket.IO setup with CORS
 const io = socketIo(server, {
     cors: {
-        origin: 'https://charming-crostata-6cc0f0.netlify.app',
+        origin: 'https://charming-crumble-292dfc.netlify.app',
         methods: ['GET', 'POST'],
         credentials: true,
         transports: ['websocket', 'polling']
@@ -93,7 +93,7 @@ const initializeRoutes = () => {
             status: 'ok',
             message: 'PlanExtra API Server',
             version: '1.0.0',
-            frontend: 'https://charming-crostata-6cc0f0.netlify.app'
+            frontend: 'https://charming-crumble-292dfc.netlify.app'
         });
     });
 };
