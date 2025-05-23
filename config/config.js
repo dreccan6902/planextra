@@ -1,6 +1,6 @@
 // Environment configuration without dotenv
 module.exports = {
-    mongoURI: process.env.MONGODB_URI || 'mongodb+srv://drecxylover:tdTWv9IX4twWjYUF@cluster0.dcmqkxq.mongodb.net/planextra?retryWrites=true&w=majority&appName=Cluster0',
+    mongoURI: process.env.MONGODB_URI || 'mongodb://localhost:27017/planextra',
     port: process.env.PORT || 5000,
     nodeEnv: process.env.NODE_ENV || 'development',
     mongooseOptions: {
