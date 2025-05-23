@@ -32,7 +32,7 @@ app.use(express.json());
 
 // CORS Configuration
 app.use((req, res, next) => {
-    const allowedOrigins = ['https://heroic-figolla-87d8e9.netlify.app'];
+    const allowedOrigins = ['https://melodic-lebkuchen-a42cba.netlify.app'];
     const origin = req.headers.origin;
     
     if (allowedOrigins.includes(origin)) {
@@ -51,21 +51,11 @@ app.use((req, res, next) => {
     // Set max age for preflight requests
     res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
     
-    // Set Content-Security-Policy header with WebSocket support
-    res.setHeader(
-        'Content-Security-Policy',
-        "default-src 'self' https://planextra.onrender.com https://heroic-figolla-87d8e9.netlify.app; " +
-        "connect-src 'self' https://planextra.onrender.com wss://planextra.onrender.com https://heroic-figolla-87d8e9.netlify.app ws://planextra.onrender.com; " +
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
-        "style-src 'self' 'unsafe-inline';"
-    );
-
     // Handle preflight requests
     if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
+        return res.status(204).end();
     }
-
+    
     next();
 });
 
