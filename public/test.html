@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Planextra Collaboration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .auth-container {
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            border-radius: 5px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .btn {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+        }
+        .btn:hover {
+            background: #45a049;
+        }
+        .toggle-form {
+            text-align: center;
+            margin-top: 15px;
+        }
+        .toggle-form a {
+            color: #4CAF50;
+            text-decoration: none;
+        }
+        .user-cursor {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        .user-list {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .workspace {
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            min-height: 300px;
+        }
+        .status-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #333;
+            color: white;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+        }
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ccc;
+        }
+        .status-dot.connected {
+            background: #4CAF50;
+        }
+        .active-users {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .user-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #4CAF50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .main-content {
+            margin-top: 60px;
+        }
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background: #333;
+            color: white;
+            border-radius: 5px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .notification.show {
+            opacity: 1;
+        }
+        #content {
+            width: 100%;
+            min-height: 200px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 20px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <div id="status-bar" class="status-bar" style="display: none;">
+        <div class="status-indicator">
+            <div id="status-dot" class="status-dot"></div>
+            <span id="status-text">Disconnected</span>
+        </div>
+        <div class="active-users">
+            <span>Active Users:</span>
+            <div id="active-users-avatars"></div>
+        </div>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
+    <div id="auth-container" class="auth-container">
+        <div id="login-form">
+            <h2>Login</h2>
+            <div class="form-group">
+                <label for="login-email">Email</label>
+                <input type="email" id="login-email" placeholder="Enter your email">
+            </div>
+            <div class="form-group">
+                <label for="login-password">Password</label>
+                <input type="password" id="login-password" placeholder="Enter your password">
+            </div>
+            <button class="btn" onclick="login()">Login</button>
+            <div class="toggle-form">
+                <a href="#" onclick="toggleForm('register'); return false;">Need an account? Register</a>
+            </div>
+        </div>
+
+        <div id="register-form" style="display: none;">
+            <h2>Register</h2>
+            <div class="form-group">
+                <label for="register-name">Name</label>
+                <input type="text" id="register-name" placeholder="Enter your name">
+            </div>
+            <div class="form-group">
+                <label for="register-email">Email</label>
+                <input type="email" id="register-email" placeholder="Enter your email">
+            </div>
+            <div class="form-group">
+                <label for="register-password">Password</label>
+                <input type="password" id="register-password" placeholder="Enter your password">
+            </div>
+            <button class="btn" onclick="register()">Register</button>
+            <div class="toggle-form">
+                <a href="#" onclick="toggleForm('login'); return false;">Already have an account? Login</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="workspace" class="workspace main-content" style="display: none;">
+        <h2>Collaborative Workspace</h2>
+        <div id="content" contenteditable="true">Start typing here...</div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        let socket;
+        let currentUser;
+        const workspaceId = 'test-workspace';
+        const cursors = new Map();
+        const activeUsers = new Set();
+
+        function toggleForm(form) {
+            if (form === 'register') {
+                document.getElementById('login-form').style.display = 'none';
+                document.getElementById('register-form').style.display = 'block';
+            } else {
+                document.getElementById('login-form').style.display = 'block';
+                document.getElementById('register-form').style.display = 'none';
+            }
+        }
+
+        function showNotification(message, duration = 3000) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('show');
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, duration);
+        }
+
+        async function register() {
+            const name = document.getElementById('register-name').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name, email, password })
+                });
+
+                const data = await response.json();
+                if (data.token) {
+                    currentUser = data.user;
+                    document.getElementById('auth-container').style.display = 'none';
+                    document.getElementById('workspace').style.display = 'block';
+                    document.getElementById('status-bar').style.display = 'flex';
+                    initializeSocket(data.token);
+                    showNotification('Successfully registered and logged in');
+                } else {
+                    showNotification(data.message || 'Registration failed', 5000);
+                }
+            } catch (error) {
+                console.error('Registration failed:', error);
+                showNotification('Registration failed', 5000);
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+                if (data.token) {
+                    currentUser = data.user;
+                    document.getElementById('auth-container').style.display = 'none';
+                    document.getElementById('workspace').style.display = 'block';
+                    document.getElementById('status-bar').style.display = 'flex';
+                    initializeSocket(data.token);
+                    showNotification('Successfully logged in');
+                } else {
+                    showNotification(data.message || 'Login failed', 5000);
+                }
+            } catch (error) {
+                console.error('Login failed:', error);
+                showNotification('Login failed', 5000);
+            }
+        }
+
+        function updateConnectionStatus(connected) {
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+            
+            if (connected) {
+                statusDot.classList.add('connected');
+                statusText.textContent = 'Connected';
+                showNotification('Connected to collaboration server');
+            } else {
+                statusDot.classList.remove('connected');
+                statusText.textContent = 'Disconnected';
+                showNotification('Disconnected from server', 5000);
+            }
+        }
+
+        function updateActiveUsers(users) {
+            const avatarsContainer = document.getElementById('active-users-avatars');
+            avatarsContainer.innerHTML = '';
+            
+            users.forEach(userId => {
+                const avatar = document.createElement('div');
+                avatar.className = 'user-avatar';
+                avatar.style.backgroundColor = getRandomColor();
+                avatar.textContent = userId.substring(0, 2).toUpperCase();
+                avatarsContainer.appendChild(avatar);
+            });
+
+            showNotification(`${users.length} user${users.length !== 1 ? 's' : ''} active`);
+        }
+
+        function initializeSocket(token) {
+            socket = io('http://localhost:5000', {
+                auth: { token }
+            });
+
+            socket.on('connect', () => {
+                console.log('Connected to server');
+                updateConnectionStatus(true);
+                socket.emit('join-workspace', workspaceId);
+            });
+
+            socket.on('disconnect', () => {
+                updateConnectionStatus(false);
+            });
+
+            socket.on('presence-update', ({ users }) => {
+                updateActiveUsers(users);
+            });
+
+            socket.on('cursor-moved', ({ userId, position }) => {
+                updateCursor(userId, position);
+            });
+
+            socket.on('error', (error) => {
+                showNotification(error.message, 5000);
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                const position = {
+                    x: e.clientX,
+                    y: e.clientY
+                };
+                socket.emit('cursor-move', {
+                    workspaceId,
+                    position
+                });
+            });
+
+            const content = document.getElementById('content');
+            content.addEventListener('input', () => {
+                socket.emit('task-update', {
+                    workspaceId,
+                    taskId: 'test-task',
+                    changes: {
+                        content: content.innerHTML
+                    }
+                });
+            });
+
+            socket.on('task-updated', ({ changes, updatedBy }) => {
+                if (changes.content && updatedBy !== currentUser.id) {
+                    content.innerHTML = changes.content;
+                    showNotification('Content updated by another user');
+                }
+            });
+        }
+
+        function updateCursor(userId, position) {
+            if (userId === currentUser.id) return;
+            
+            let cursor = cursors.get(userId);
+            if (!cursor) {
+                cursor = document.createElement('div');
+                cursor.className = 'user-cursor';
+                cursor.style.backgroundColor = getRandomColor();
+                document.body.appendChild(cursor);
+                cursors.set(userId, cursor);
+            }
+            cursor.style.left = position.x + 'px';
+            cursor.style.top = position.y + 'px';
+        }
+
+        function getRandomColor() {
+            const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
+    </script>
+</body>
+</html> 

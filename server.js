@@ -1,0 +1,349 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const http = require('http');
+const socketIo = require('socket.io');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const path = require('path');
+const config = require('./config/config');
+const taskRoutes = require('./routes/tasks');
+const groupRoutes = require('./routes/groups');
+const sharedTaskRoutes = require('./routes/sharedTasks');
+const Task = require('./models/Task');
+const SharedTask = require('./models/SharedTask');
+const User = require('./models/User');
+
+// Configure mongoose
+mongoose.set('strictQuery', false);
+
+const app = express();
+const server = http.createServer(app);
+
+// Request logging middleware
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+    console.log('Headers:', req.headers);
+    next();
+});
+
+// Basic middleware
+app.use(express.json());
+
+// CORS Configuration
+app.use((req, res, next) => {
+    // Allow the specific Netlify domain
+    res.setHeader('Access-Control-Allow-Origin', 'https://voluble-shortbread-9f929b.netlify.app');
+    
+    // Allow credentials
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    
+    // Allow specific methods
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    
+    // Allow specific headers
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    
+    // Set max age for preflight requests
+    res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+
+    // Log CORS headers being set
+    console.log('CORS Headers set:', {
+        origin: res.getHeader('Access-Control-Allow-Origin'),
+        methods: res.getHeader('Access-Control-Allow-Methods'),
+        headers: res.getHeader('Access-Control-Allow-Headers'),
+        credentials: res.getHeader('Access-Control-Allow-Credentials')
+    });
+
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+        console.log('Handling OPTIONS preflight request');
+        res.status(200).end();
+        return;
+    }
+
+    next();
+});
+
+// Specific CORS handling for Socket.IO
+const io = socketIo(server, {
+    cors: {
+        origin: 'https://voluble-shortbread-9f929b.netlify.app',
+        methods: ['GET', 'POST'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
+        credentials: true
+    },
+    transports: ['websocket', 'polling']
+});
+
+// Initialize routes
+const initializeRoutes = () => {
+    app.set('io', io);
+    
+    // Test route to verify CORS
+    app.get('/test', (req, res) => {
+        res.json({ message: 'CORS test successful' });
+    });
+
+    // API routes
+    app.use('/api/tasks', taskRoutes);
+    app.use('/api/groups', groupRoutes);
+    app.use('/api/shared-tasks', sharedTaskRoutes);
+
+    // Root route
+    app.get('/', (req, res) => {
+        res.json({
+            status: 'ok',
+            message: 'PlanExtra API Server',
+            version: '1.0.0'
+        });
+    });
+};
+
+// MongoDB connection
+async function startServer() {
+    try {
+        await mongoose.connect(config.mongoURI, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true
+        });
+        
+        console.log('Connected to MongoDB Atlas successfully');
+        initializeRoutes();
+        
+        // Socket.IO auth
+        io.use((socket, next) => {
+            const token = socket.handshake.auth.token;
+            if (!token) {
+                return next(new Error('Authentication error'));
+            }
+            try {
+                const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+                socket.user = decoded;
+                next();
+            } catch (error) {
+                next(new Error('Authentication error'));
+            }
+        });
+
+        const PORT = process.env.PORT || 3000;
+        server.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+        });
+
+    } catch (error) {
+        console.error('Failed to connect to MongoDB:', error);
+        process.exit(1);
+    }
+}
+
+// JWT Secret
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+// Authentication middleware
+const authenticateToken = (req, res, next) => {
+    if (req.path.startsWith('/auth/')) {
+        return next();
+    }
+
+    const token = req.headers.authorization?.split(' ')[1] || req.query.token;
+    
+    if (!token) {
+        return res.status(401).json({ message: 'No token provided' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        req.user = decoded;
+        next();
+    } catch (error) {
+        res.status(401).json({ message: 'Invalid token' });
+    }
+};
+
+// Authentication Routes
+app.post('/auth/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        console.log('Login attempt for:', email);
+
+        if (!email || !password) {
+            return res.status(400).json({ message: 'Email and password are required' });
+        }
+
+        const user = await User.findOne({ email }).select('+password');
+        if (!user) {
+            return res.status(401).json({ message: 'Invalid email or password' });
+        }
+
+        const validPassword = await bcrypt.compare(password, user.password);
+        if (!validPassword) {
+            return res.status(401).json({ message: 'Invalid email or password' });
+        }
+
+        const token = jwt.sign(
+            { id: user._id, name: user.name, email: user.email, role: user.role },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        user.password = undefined;
+
+        res.json({
+            message: 'Login successful',
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role
+            }
+        });
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ message: 'Error logging in' });
+    }
+});
+
+app.post('/auth/register', async (req, res) => {
+    try {
+        const { name, email, password } = req.body;
+        
+        if (!name || !email || !password) {
+            return res.status(400).json({ message: 'All fields are required' });
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ message: 'Invalid email format' });
+        }
+
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ message: 'User already exists' });
+        }
+
+        const user = new User({
+            name,
+            email,
+            password,
+            role: 'user',
+            createdAt: new Date(),
+            updatedAt: new Date()
+        });
+
+        await user.save();
+
+        const token = jwt.sign(
+            { id: user._id, name: user.name, email: user.email },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        res.status(201).json({
+            message: 'User created successfully',
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role
+            }
+        });
+    } catch (error) {
+        console.error('Registration error:', error);
+        res.status(500).json({ message: 'Error creating user' });
+    }
+});
+
+// Track active users with multiple connections per user
+const activeUsers = new Map(); // userId -> { user data }
+const userSockets = new Map(); // userId -> Set of socket IDs
+
+io.on('connection', (socket) => {
+    console.log('User connected:', socket.user.name);
+    
+    // Add user to active users
+    activeUsers.set(socket.user.userId, {
+        id: socket.user.userId,
+        name: socket.user.name,
+        socketId: socket.id
+    });
+    
+    // Send initial active users list to the newly connected user
+    socket.emit('activeUsers', Array.from(activeUsers.values()));
+
+    // Handle request for active users list
+    socket.on('requestActiveUsers', () => {
+        socket.emit('activeUsers', Array.from(activeUsers.values()));
+    });
+
+    // Join group room
+    socket.on('joinGroup', (groupId) => {
+        socket.join(groupId);
+        console.log(`${socket.user.name} joined group ${groupId}`);
+        
+        // Broadcast active users to the group
+        io.to(groupId).emit('activeUsers', Array.from(activeUsers.values()));
+    });
+
+    // Handle task events
+    socket.on('addTask', async (data) => {
+        try {
+            const task = new Task({
+                text: data.text,
+                category: data.category,
+                createdBy: socket.user.userId
+            });
+            await task.save();
+            socket.broadcast.emit('taskAdded', task);
+        } catch (error) {
+            console.error('Error adding task:', error);
+        }
+    });
+
+    socket.on('updateTask', async (data) => {
+        try {
+            const task = await Task.findOneAndUpdate(
+                { _id: data.taskId, createdBy: socket.user.userId },
+                { category: data.newCategory },
+                { new: true }
+            );
+            if (task) {
+                socket.broadcast.emit('taskUpdated', task);
+            }
+        } catch (error) {
+            console.error('Error updating task:', error);
+        }
+    });
+
+    socket.on('deleteTask', async (data) => {
+        try {
+            const task = await Task.findOneAndDelete({
+                _id: data.taskId,
+                createdBy: socket.user.userId
+            });
+            if (task) {
+                socket.broadcast.emit('taskDeleted', data.taskId);
+            }
+        } catch (error) {
+            console.error('Error deleting task:', error);
+        }
+    });
+
+    // Handle disconnection
+    socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.user.name);
+        activeUsers.delete(socket.user.userId);
+        
+        // Broadcast updated active users list to all groups
+        socket.rooms.forEach(room => {
+            if (room !== socket.id) { // Ignore the default room
+                io.to(room).emit('activeUsers', Array.from(activeUsers.values()));
+            }
+        });
+    });
+});
+
+// Start the server
+startServer(); 

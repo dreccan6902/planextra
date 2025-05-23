@@ -1,0 +1,26 @@
+{
+  "name": "planextra",
+  "version": "1.0.0",
+  "description": "A collaborative task management system",
+  "main": "server.js",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "migrate-users": "node scripts/mergeUsers.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.17.1",
+    "jsonwebtoken": "^8.5.1",
+    "mongoose": "^6.0.12",
+    "socket.io": "^4.5.4"
+  },
+  "devDependencies": {
+    "archiver": "^7.0.1",
+    "nodemon": "^2.0.15"
+  }
+}
