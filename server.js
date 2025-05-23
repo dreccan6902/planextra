@@ -32,7 +32,7 @@ app.use(express.json());
 
 // CORS Configuration
 app.use((req, res, next) => {
-    const allowedOrigins = ['https://glowing-fudge-fb783c.netlify.app'];
+    const allowedOrigins = ['https://majestic-boba-4092cc.netlify.app'];
     const origin = req.headers.origin;
     
     if (allowedOrigins.includes(origin)) {
@@ -54,8 +54,8 @@ app.use((req, res, next) => {
     // Set Content-Security-Policy header with WebSocket support
     res.setHeader(
         'Content-Security-Policy',
-        "default-src 'self' https://planextra.onrender.com https://glowing-fudge-fb783c.netlify.app; " +
-        "connect-src 'self' https://planextra.onrender.com wss://planextra.onrender.com https://glowing-fudge-fb783c.netlify.app ws://planextra.onrender.com; " +
+        "default-src 'self' https://planextra.onrender.com https://majestic-boba-4092cc.netlify.app; " +
+        "connect-src 'self' https://planextra.onrender.com wss://planextra.onrender.com https://majestic-boba-4092cc.netlify.app ws://planextra.onrender.com; " +
         "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
         "style-src 'self' 'unsafe-inline';"
     );
@@ -72,7 +72,7 @@ app.use((req, res, next) => {
 // Socket.IO setup with CORS
 const io = socketIo(server, {
     cors: {
-        origin: 'https://glowing-fudge-fb783c.netlify.app',
+        origin: 'https://majestic-boba-4092cc.netlify.app',
         methods: ['GET', 'POST'],
         credentials: true
     },
@@ -103,7 +103,7 @@ const initializeRoutes = () => {
             status: 'ok',
             message: 'PlanExtra API Server',
             version: '1.0.0',
-            frontend: 'https://glowing-fudge-fb783c.netlify.app'
+            frontend: 'https://majestic-boba-4092cc.netlify.app'
         });
     });
 };
@@ -244,6 +244,14 @@ app.post('/auth/login', async (req, res) => {
         console.error('Login error:', error);
         res.status(500).json({ message: 'Error logging in' });
     }
+});
+
+// Token verification endpoint
+app.get('/api/auth/verify', authenticateToken, (req, res) => {
+    res.json({ 
+        valid: true,
+        user: req.user 
+    });
 });
 
 app.post('/auth/register', async (req, res) => {
